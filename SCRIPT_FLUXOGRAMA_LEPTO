@@ -1,0 +1,152 @@
+# ==========================================================================================
+# FLOWCHART OF SAMPLE SELECTION FOR HOSPITALIZED ADULT PATIENTS WITH CONFIRMED LEPTOSPIROSIS
+# Database: SINAN Leptospirosis, Brazil, 2007–2025
+# Inclusion criteria:
+#   1. Total records
+#   2. Hospital admission
+#   3. Confirmed leptospirosis
+#   4. Age ≥ 18 years
+#   5. Known outcome
+# FONTE de DADOS: http://portalsinan.saude.gov.br/leptospirose
+#
+# Ficha de notificação/investigação
+# Instrucional de preenchimento da ficha de notificação/investigação
+# Dicionário de Dados
+#
+# Author: Giovani B Costa
+# Date: 18/04/2026
+# ==========================================================================================
+
+library(ggplot2)
+library(dplyr)
+
+# ====================================
+# Criar colunas de idade 
+# ====================================
+
+leptospirose <- lepto2007_2025 %>%
+  mutate(
+    primeiro_digito = substr(as.character(NU_IDADE_N), 1, 1),
+    valor_idade = as.numeric(
+      substr(as.character(NU_IDADE_N), 2, nchar(as.character(NU_IDADE_N)))
+    ),
+    IDADE_ANOS = ifelse(primeiro_digito == "4", valor_idade, NA)
+  )
+
+hist(leptospirose$IDADE_ANOS)
+
+# ====================================
+# Etapa 1: Total de registros
+# ====================================
+
+n1 <- nrow(leptospirose)
+# ====================================
+# Etapa 2: Hospital admission (ATE_HOSP == 1)
+# ====================================
+n2 <- leptospirose %>%
+  filter(ATE_HOSP == 1) %>%
+  nrow()
+# ====================================
+# Etapa 3: Hospital admission with confirmed leptospirosis
+# ====================================
+n3 <- leptospirose %>%
+  filter(ATE_HOSP == 1) %>%
+  filter(CLASSI_FIN == 1) %>%
+  nrow()
+# ====================================
+# Etapa 4: Excluir pacientes com idade < 18 anos
+# ====================================
+n4 <- leptospirose %>%
+  filter(ATE_HOSP == 1) %>%
+  filter(CLASSI_FIN == 1) %>%
+  filter(primeiro_digito == "4") %>%
+  filter(valor_idade >= 18) %>%
+  nrow()
+# ====================================
+# Etapa 5: Excluir pacientes sem desfecho disponível
+# ====================================
+n5 <- leptospirose %>%
+  filter(ATE_HOSP == 1) %>%
+  filter(CLASSI_FIN == 1) %>%
+  filter(primeiro_digito == "4") %>%
+  filter(valor_idade >= 18) %>%
+  filter(EVOLUCAO %in% c(1, 2)) %>%
+  nrow()
+# ====================================
+# Número de excluídos em cada etapa
+# ====================================
+exc1 <- n1 - n2
+exc2 <- n2 - n3
+exc3 <- n3 - n4
+exc4 <- n4 - n5
+# ====================================
+# Resumo
+# ====================================
+cat("\n========== FLOWCHART ==========\n\n")
+cat("Total records:", n1, "\n")
+cat("Hospital admission:", n2, " | Excluded:", exc1, "\n")
+cat("Hospital admission with confirmed leptospirosis:", n3, " | Excluded:", exc2, "\n")
+cat("Age ≥ 18 years:", n4, " | Excluded:", exc3, "\n")
+cat("Known outcome:", n5, " | Excluded:", exc4, "\n")
+cat("\nFinal included:", n5, "\n")
+
+# ====================================
+# ====================================
+texto_fluxograma <- paste0(
+  "
+digraph fluxograma {
+  graph [layout = dot, rankdir = TB, splines = ortho]
+
+  node [
+    shape = box,
+    style = filled,
+    fillcolor = LightBlue,
+    fontname = Times,
+    penwidth = 4,
+    margin = 0.3,
+    width = 3.8,
+    height = 1
+  ]
+
+  edge [
+    color = gray50,
+    penwidth = 2
+  ]
+
+  node1 [label = '", flow$TITULO[1], "\\nn = ", format(flow$N[1], big.mark = ","), "']
+  node2 [label = '", flow$TITULO[2], "\\nn = ", format(flow$N[2], big.mark = ","), "']
+  node3 [label = '", flow$TITULO[3], "\\nn = ", format(flow$N[3], big.mark = ","), "']
+  node4 [label = '", flow$TITULO[4], "\\nn = ", format(flow$N[4], big.mark = ","), "']
+  node5 [label = 'Final included\\nn = ", format(flow$N[5], big.mark = ","), "', fillcolor = PaleGreen]
+
+  excl1 [label = 'Excluded\\nn = ", format(flow$PERDAS[2], big.mark = ","), "\\n(", flow$PERCENTUAL[2], "%)', fillcolor = MistyRose]
+  excl2 [label = 'Excluded\\nn = ", format(flow$PERDAS[3], big.mark = ","), "\\n(", flow$PERCENTUAL[3], "%)', fillcolor = MistyRose]
+  excl3 [label = 'Excluded\\nn = ", format(flow$PERDAS[4], big.mark = ","), "\\n(", flow$PERCENTUAL[4], "%)', fillcolor = MistyRose]
+  excl4 [label = 'Excluded\\nn = ", format(flow$PERDAS[5], big.mark = ","), "\\n(", flow$PERCENTUAL[5], "%)', fillcolor = MistyRose]
+
+  mid1 [shape = point, width = 0]
+  mid2 [shape = point, width = 0]
+  mid3 [shape = point, width = 0]
+  mid4 [shape = point, width = 0]
+
+  {rank = same; mid1; excl1}
+  {rank = same; mid2; excl2}
+  {rank = same; mid3; excl3}
+  {rank = same; mid4; excl4}
+
+  node1 -> mid1 -> node2
+  node2 -> mid2 -> node3
+  node3 -> mid3 -> node4
+  node4 -> mid4 -> node5
+
+  mid1 -> excl1 [dir = none]
+  mid2 -> excl2 [dir = none]
+  mid3 -> excl3 [dir = none]
+  mid4 -> excl4 [dir = none]
+}
+"
+)
+# ====================================
+fluxograma <- grViz(texto_fluxograma)
+# ====================================
+fluxograma
