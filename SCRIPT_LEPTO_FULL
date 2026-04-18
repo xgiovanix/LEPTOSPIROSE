@@ -25,7 +25,8 @@
 # ============================================
 library(read.dbc)
 library(haven)
-
+library(DiagrammeR)
+library(DiagrammeRsvg)
 # ============================================
 unique(lepto2007_2026$NU_ANO)
 
@@ -345,6 +346,8 @@ exc1 <- n1 - n2
 exc2 <- n2 - n3
 exc3 <- n3 - n4
 exc4 <- n4 - n5
+
+
 # ====================================
 # Resumo
 # ====================================
@@ -357,6 +360,26 @@ cat("Known outcome:", n5, " | Excluded:", exc4, "\n")
 cat("\nFinal included:", n5, "\n")
 
 # ====================================
+flow <- tibble(
+  TITULO = c(
+    "Total records",
+    "Hospital admission",
+    "Confirmed leptospirosis",
+    "Age ≥ 18 years",
+    "Known outcome"
+  ),
+  N = c(n1, n2, n3, n4, n5),
+  PERDAS = c(
+    NA,
+    exc1,
+    exc2,
+    exc3,
+    exc4
+  )
+) %>%
+  mutate(
+    PERCENTUAL = round((PERDAS / lag(N)) * 100, 1)
+  )
 # ====================================
 texto_fluxograma <- paste0(
   "
@@ -412,9 +435,9 @@ digraph fluxograma {
 }
 "
 )
+
+
 # ====================================
 fluxograma <- grViz(texto_fluxograma)
 # ====================================
 fluxograma
-
-
